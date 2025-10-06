@@ -108,6 +108,8 @@ Key ideas:
 - **Non‑linearities:** Functions like ReLU or sigmoid let networks model curved, complex relationships, not just straight lines.
 - **Depth & width:** You can choose how many layers (depth) and how many units per layer (width) to suit the problem.
 
+Example: In computer vision, architectures like ResNet‑34 and ResNet‑152 illustrate “depth” (the number of layers) in practice.
+
 **In a nutshell:** Neural nets learn their own features through many layered transformations.
 
 ---
@@ -158,6 +160,12 @@ Deep learning can be applied almost anywhere we can turn things into numbers. So
 - **Speech Recognition:** Assistants like Siri and Alexa convert audio into text commands.  
 - **Computer Vision:** Detecting objects in photos/videos (e.g., cars, faces, products).  
 - **Natural Language Processing (NLP):** Spam filters, chatbots, and sentiment analysis.
+
+### Task Types
+- **Classification:** Predict categories (binary or multiclass), e.g., spam vs not‑spam, cat vs dog.
+- **Regression:** Predict continuous values, e.g., bounding‑box coordinates or prices.
+- **Sequence‑to‑Sequence (Seq2Seq):** Map input sequences to output sequences, e.g., translation or speech‑to‑text.
+- **Object Detection/Segmentation:** Locate and/or delineate objects in images (boxes or pixel‑wise masks).
 
 **In a nutshell:** DL powers many real-world tools, translation, recommendations, vision, speech, NLP.
 
@@ -425,6 +433,327 @@ Places to share: GitHub, LinkedIn, personal blogs, or Discord communities.
 Think of it like building muscle, small consistent reps are more effective than occasional huge efforts.  
 
 **In a nutshell:** Stay patient, curious, and consistent, learning compounds over time.
+
+---
+
+## Setting Up the Environment
+
+The easiest way to start coding with PyTorch is using **Google Colab** — a free, cloud‑based notebook that lets you write and run Python right in your browser.  
+Colab comes pre‑installed with **PyTorch**, **NumPy**, **Pandas**, and **Matplotlib**, so you don’t need to set anything up.
+
+To enable GPU acceleration (for faster training):
+
+```python
+# Go to: Runtime → Change runtime type → Hardware accelerator → GPU
+```
+
+You can check your GPU details with:
+```python
+!nvidia-smi
+```
+This shows which GPU Colab has assigned to you (often Tesla T4 or P100).  
+
+**In a nutshell:** Google Colab gives you a ready‑to‑use PyTorch setup with free GPU support.
+
+---
+
+## What Are Tensors?
+
+In deep learning, **everything revolves around tensors.**  
+A tensor is just a way to store numbers in multiple dimensions — like an upgraded version of lists and arrays.
+
+| Concept | Example | Dimensions | Description |
+|----------|----------|-------------|--------------|
+| Scalar | `torch.tensor(7)` | 0D | A single number |
+| Vector | `torch.tensor([1, 2, 3])` | 1D | A list of numbers |
+| Matrix | `torch.tensor([[1, 2], [3, 4]])` | 2D | Rows × columns grid |
+| Tensor | `torch.tensor([[[1,2],[3,4]]])` | 3D+ | Stack of matrices |
+
+Each tensor has:  
+- **`shape`** → size in each dimension  
+- **`ndim`** → number of dimensions  
+- **`dtype`** → data type (float, int, etc.)
+
+Example – Creating a Scalar:
+
+```python
+scalar = torch.tensor(7)
+scalar.item()
+```
+`.item()` converts the one‑element tensor to a normal Python number.
+
+**In a nutshell:** Tensors are multi‑dimensional containers of numbers — the foundation of deep learning.
+
+---
+
+## Creating Vectors and Matrices
+
+### Example: Vector
+```python
+vector = torch.tensor([3, 6, 9])
+print(vector.ndim)   # 1
+print(vector.shape)  # torch.Size([3])
+```
+A 1‑D tensor (vector) stores a simple list of values.
+
+### Example: Matrix
+```python
+matrix = torch.tensor([[7, 8],
+                       [9,10]])
+print(matrix.ndim)   # 2
+print(matrix.shape)  # torch.Size([2, 2])
+```
+A 2‑D tensor is like a spreadsheet — rows × columns.
+
+**In a nutshell:** 1D → vector, 2D → matrix; each extra bracket adds a dimension.
+
+---
+
+## Creating a 3‑D Tensor
+
+A 3‑D tensor is a collection of 2‑D matrices stacked together.
+
+```python
+tensor3d = torch.tensor([[[1,2,3],
+                          [4,5,6],
+                          [7,8,9]]])
+print(tensor3d.ndim)   # 3
+print(tensor3d.shape)  # torch.Size([1, 3, 3])
+```
+These are used for color images (height × width × channels) or batches of data.
+
+**In a nutshell:** Each new set of `[]` adds a dimension; 3D tensors often represent images or data batches.
+
+---
+
+## Random Tensors — How Learning Starts
+
+Models start from random numbers and learn by adjusting them gradually.  
+You can create a random tensor like this:
+
+```python
+random_tensor = torch.rand(3, 4)
+print(random_tensor)
+```
+This makes a 3×4 tensor filled with random numbers between 0 and 1.
+
+Why this matters: when you train a neural network, the initial weights are random. As the model learns, those random values get tuned into meaningful patterns.
+
+**In a nutshell:** Every neural network starts with random numbers and learns to adjust them through training.
+
+---
+
+## Image‑Shaped Tensors
+
+Images are stored as numeric arrays of pixel values.  
+Most color images are 3‑D tensors with the shape *(height, width, channels)*.
+
+```python
+image = torch.rand(224, 224, 3)
+print(image.shape)
+# torch.Size([224, 224, 3])
+```
+Here, 224×224 is the resolution and 3 represents the RGB color channels.
+
+**In a nutshell:** Images = 3‑D tensors (height × width × color channels).
+
+---
+
+## Zero and One Tensors
+
+Tensors filled with zeros or ones are useful for initialization or masking.
+
+```python
+zeros = torch.zeros(3, 4)
+ones  = torch.ones(3, 4)
+```
+- All elements = 0 or 1.  
+- You can multiply another tensor by 0 to “mask out” parts you want to ignore.
+
+**In a nutshell:** `torch.zeros()` and `torch.ones()` create uniform tensors for testing or masking.
+
+---
+
+## Creating Ranges of Numbers
+
+Use `torch.arange(start, end, step)` to generate a sequence of numbers.
+
+```python
+torch.arange(0, 10)      # 0 1 2 3 4 5 6 7 8 9
+torch.arange(1, 10, 2)   # 1 3 5 7 9
+```
+This is similar to Python’s `range()` but returns a tensor.
+
+**In a nutshell:** `torch.arange()` creates sequences of numbers inside tensors.
+
+---
+
+## Tensors “Like” Other Tensors
+
+You can quickly create new tensors with the same shape as an existing one.
+
+```python
+base = torch.arange(1, 10)
+zeros_like = torch.zeros_like(base)
+ones_like  = torch.ones_like(base)
+```
+These new tensors match `base` in shape but have different values.
+
+**In a nutshell:** “_like” functions clone the shape of another tensor without manually typing dimensions.
+
+---
+
+## Tensor Data Types (dtype)
+
+Data types control how precise and memory‑hungry numbers are.
+
+| dtype | Description | Typical Use |
+|--------|--------------|-------------|
+| `torch.float32` | 32‑bit float (single precision) | Default for most tasks |
+| `torch.float16` | 16‑bit float (half precision) | Faster on GPU, less accurate |
+| `torch.int32` / `torch.int64` | Integers | Counting or indexing |
+| `torch.bool` | True/False values | Masks and conditions |
+
+Example:
+
+```python
+float_tensor = torch.tensor([3.0, 6.0, 9.0], dtype=torch.float32)
+int_tensor   = torch.tensor([3, 6, 9], dtype=torch.int32)
+```
+
+**In a nutshell:** `dtype` defines how precise each number is and how much memory it uses.
+
+---
+
+## Common Tensor Errors and Fixes
+
+Typical mistakes in PyTorch:
+
+1. **Mismatched data types** (e.g., float + int).  
+2. **Mismatched shapes** (different dimensions).  
+3. **Mismatched devices** (one tensor on CPU, another on GPU).
+
+Example – Fixing dtype:
+
+```python
+t1 = torch.tensor([1, 2, 3], dtype=torch.float32)
+t2 = torch.tensor([4, 5, 6], dtype=torch.float16)
+
+t2 = t2.to(torch.float32)
+result = t1 + t2
+```
+Now both tensors match in dtype, and addition works.
+
+**In a nutshell:** Check `dtype`, `shape`, and `device` first when something breaks.
+
+---
+
+## Devices — CPU vs GPU
+
+PyTorch tensors can live on two devices: **CPU** or **GPU**.
+
+By default, tensors are created on the CPU:
+```python
+tensor = torch.rand(3, 4)
+print(tensor.device)  # cpu
+```
+
+If your computer (or Colab) has a GPU, you can move tensors to it:
+```python
+device = "cuda" if torch.cuda.is_available() else "cpu"
+tensor = tensor.to(device)
+print(tensor.device)
+```
+
+Why this matters:
+- GPUs can perform thousands of calculations in parallel.
+- Moving tensors to GPU speeds up training dramatically.
+- But CPU↔GPU transfers take time — keep everything on one device during computation.
+
+**In a nutshell:** CPUs handle general tasks; GPUs crunch numbers in parallel for deep learning.
+
+---
+
+## Tensor Attributes and Inspection
+
+Every tensor has a few important attributes:
+- **`dtype`** – data type (e.g., float32, int64)
+- **`shape`** – rows × columns × … dimensions
+- **`device`** – where it lives (CPU or GPU)
+- **`ndim`** – number of dimensions
+
+Example:
+```python
+t = torch.rand(3, 4)
+print(t.dtype)   # torch.float32
+print(t.shape)   # torch.Size([3, 4])
+print(t.device)  # cpu
+print(t.ndim)    # 2
+```
+
+Tip: `.shape` and `.size()` do the same thing.
+
+**In a nutshell:** Always check a tensor’s dtype, shape, and device before heavy computations.
+
+---
+
+## Basic Tensor Operations
+
+Tensors support standard math directly — addition, subtraction, multiplication, and division.
+
+### Element‑wise Arithmetic
+Each element is processed individually:
+```python
+x = torch.tensor([1, 2, 3])
+print(x + 10)  # tensor([11, 12, 13])
+print(x * 2)   # tensor([2, 4, 6])
+print(x / 2)   # tensor([0.5, 1.0, 1.5])
+```
+
+### Using PyTorch Functions
+PyTorch also provides functional forms that behave identically:
+```python
+print(torch.add(x, 10))
+print(torch.mul(x, 2))
+print(torch.sub(x, 1))
+```
+
+These are useful when chaining multiple operations in model code.
+
+**In a nutshell:** PyTorch math works element‑by‑element — you can use operators (`+`, `*`) or function calls (`torch.add`, `torch.mul`).
+
+---
+
+## Matrix Multiplication Preview
+
+Matrix multiplication (`@` or `torch.matmul`) is the most important operation in neural networks — it’s how features and weights interact.
+
+```python
+A = torch.tensor([[1, 2],
+                  [3, 4]])
+B = torch.tensor([[5, 6],
+                  [7, 8]])
+
+print(torch.matmul(A, B))
+# or equivalently: A @ B
+```
+Output:
+```
+tensor([[19, 22],
+        [43, 50]])
+```
+
+**How it works:**  
+Each row of `A` is multiplied with each column of `B`, and the products are summed — producing a new matrix.
+
+**Visual:**
+```
+A (2×2)  @  B (2×2)  →  Result (2×2)
+```
+
+This operation is the foundation of layers in a neural network — inputs (data) × weights (parameters) = outputs (features).
+
+**In a nutshell:** Matrix multiplication mixes data and learned weights — it’s the math heart of deep learning.
 
 ---
 
