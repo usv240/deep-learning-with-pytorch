@@ -935,4 +935,253 @@ In a nutshell: `permute` reorders axes, e.g., HWC ↔ CHW for images.
 
 ---
 
+## 1) Permute returns a view (memory is shared)
+
+When you call `permute`, you don’t copy the data — you create a different “view” onto the same memory. The numbers are the same; only the dimension order changes.
+
+Example: HWC (height, width, channels) → CHW (channels, height, width) for images.
+
+```python
+import torch
+
+X_original = torch.randn(2, 3, 4)      # e.g., NCHW-ish shape for demo
+X_permuted = X_original.permute(1, 0, 2)
+
+print("original shape:", X_original.shape)  # torch.Size([2, 3, 4])
+print("permuted shape:", X_permuted.shape)  # torch.Size([3, 2, 4])
+```
+
+Because `permute` returns a view, in‑place edits to the underlying storage are visible from both tensors.
+
+```python
+# Change a single value in-place
+X_original[0, 0, 0] = 999
+print(X_original[0, 0, 0].item())  # 999.0
+print(X_permuted[0, 0, 0].item())  # 999.0  ← same memory
+```
+
+- `permute` changes axis order but not the data values.
+- A “view” shares the same storage; a “copy” has separate storage.
+
+In a nutshell: `permute` only reorders axes; it returns a view that shares memory with the original tensor.
+
+---
+
+## 2) Indexing multi‑dimensional tensors (with examples)
+
+Indexing lets you select elements across dimensions. Think: outer → inner brackets left to right.
+
+We’ll create a simple shaped tensor to practice: `1 × 3 × 3`.
+
+```python
+import torch
+x = torch.arange(1, 10).reshape(1, 3, 3)
+print(x)
+# tensor([[[1, 2, 3],
+#          [4, 5, 6],
+#          [7, 8, 9]]])
+print(x.shape)  # torch.Size([1, 3, 3])
+```
+
+Basic indexing:
+- `x[0]` → selects the first block (the outermost dimension).
+- `x[0, 0]` → selects the first row of that block.
+- `x[0, 0, 0]` → selects the first element of that row (value `1`).
+
+Indexing with “all” along a dimension uses a colon `:` (not a semicolon):
+
+```python
+x[ :, 0,  : ]   # all blocks, first row, all columns → tensor([[1, 2, 3]])
+x[ :, :,  1 ]   # all blocks, all rows, column index 1 → tensor([[2, 5, 8]])
+```
+
+Challenges (and solutions):
+- “Return 9” → `x[0, 2, 2]`
+- “Return 3, 6, 9” as a 1D slice → `x[0, :, 2]` → `tensor([3, 6, 9])`
+
+Tip: When an index is out of range (e.g., using `1` on a size‑1 dimension), you’ll get “index out of bounds” errors. Check `x.shape` first.
+
+In a nutshell: Use commas to step through dimensions and `:` to select all along a dimension; always sanity‑check shapes before indexing.
+
+---
+
+## 3) NumPy ↔ PyTorch interop (dtypes and memory sharing)
+
+You’ll often move data between NumPy and PyTorch.
+
+- NumPy → PyTorch: `torch.from_numpy(ndarray)`
+- PyTorch → NumPy: `tensor.numpy()`
+
+Data types (defaults):
+- NumPy default float dtype is `float64`.
+- PyTorch default float dtype is `torch.float32`.
+
+```python
+import numpy as np
+import torch
+
+arr = np.arange(1, 9, dtype=np.float64)
+t = torch.from_numpy(arr)          # shares memory with arr
+print(t.dtype)  # torch.float64 (reflects NumPy dtype)
+
+# Convert dtype if needed
+t32 = t.to(torch.float32)
+print(t32.dtype)  # torch.float32
+```
+
+Memory sharing rules (important):
+- `torch.from_numpy(ndarray)` → the returned tensor shares memory with the NumPy array.
+  - In‑place edits reflect both ways:
+    - `arr += 1` will also change `t`.
+    - `t.add_(1)` will also change `arr`.
+  - But rebinding creates new storage and does not reflect:
+    - `arr = arr + 1` creates a new array; `t` won’t change.
+- `tensor.numpy()` → the returned NumPy array shares memory with the tensor (if on CPU).
+  - In‑place tensor edits like `tensor.add_(1)` change the array.
+  - But `tensor = tensor + 1` rebinds to a new tensor; the array won’t change.
+
+```python
+# Demonstrate in-place vs rebinding
+arr = np.arange(4.0)
+t = torch.from_numpy(arr)
+arr += 1            # in-place → reflected in t
+print(t)            # tensor([1., 2., 3., 4.], dtype=torch.float64)
+
+arr = arr + 1       # new array → not reflected in t
+print(t)            # still tensor([1., 2., 3., 4.], dtype=torch.float64)
+
+# Tensor → NumPy (CPU only)
+t_cpu = torch.tensor([1., 2., 3.], dtype=torch.float32)
+arr2 = t_cpu.numpy()
+t_cpu.add_(10)      # in-place → reflected in arr2
+print(arr2)         # [11. 12. 13.]
+```
+
+In a nutshell: Interop shares memory; use in‑place ops (`+=`, `add_`) to see changes reflected; plain `x = x + 1` makes a new object.
+
+---
+
+## 4) Reproducibility with random seeds
+
+Neural nets start from random weights. To make experiments repeatable, set a random seed.
+
+```python
+import torch
+
+torch.manual_seed(42)           # CPU RNG
+# If using CUDA, you may also set CUDA RNGs
+if torch.cuda.is_available():
+    torch.cuda.manual_seed(42)
+    torch.cuda.manual_seed_all(42)
+
+# Two random tensors created after seeding will be the same each run
+A = torch.rand(3, 4)
+B = torch.rand(3, 4)
+print(A[:1])
+print(B[:1])
+```
+
+Notes:
+- Seed once before generating random numbers you want to reproduce.
+- If you re‑seed in between calls, you’ll “restart” the RNG stream.
+- Full determinism across backends can require more settings (e.g., `torch.use_deterministic_algorithms(True)`), but for fundamentals, seeding is usually sufficient.
+
+Make two sequential random calls identical (common in notebooks):
+
+```python
+import torch
+
+# Without reseeding: these will differ
+torch.manual_seed(42)
+A = torch.rand(3, 4)
+B = torch.rand(3, 4)
+print(torch.allclose(A, B))  # False
+
+# With reseeding before each call: these will match
+torch.manual_seed(42)
+C = torch.rand(3, 4)
+torch.manual_seed(42)
+D = torch.rand(3, 4)
+print(torch.allclose(C, D))  # True
+```
+
+In a nutshell: Call `torch.manual_seed(…)` (and CUDA seeds if needed) to make random tensors repeatable.
+
+---
+
+## 5) Running on the GPU (and how to check)
+
+GPUs speed up tensor math massively. In Colab, you can enable a GPU in the Runtime settings; locally you’ll need a compatible NVIDIA GPU and CUDA drivers per the PyTorch install guide.
+
+Quick checks:
+
+```python
+import torch
+print(torch.cuda.is_available())   # True if a CUDA GPU is visible to PyTorch
+print(torch.cuda.device_count())   # Number of GPUs
+if torch.cuda.is_available():
+    print(torch.cuda.get_device_name(0))
+```
+
+Why it matters:
+- Keep tensors and models on the same device.
+- Moving data CPU↔GPU is relatively slow; minimize transfers inside tight loops.
+
+In a nutshell: Use a CUDA‑enabled GPU when available; it makes training and inference much faster.
+
+---
+
+## 6) Device‑agnostic code and moving tensors/models
+
+Write code that works on CPU and GPU without modification by picking a target device once and reusing it.
+
+```python
+import torch
+
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+# Tensors
+x = torch.tensor([1., 2., 3.], device=device)
+# or: x = torch.tensor([1., 2., 3.]).to(device)
+
+# Models
+import torch.nn as nn
+model = nn.Linear(3, 2).to(device)
+
+# Forward pass keeps everything on the same device
+out = model(x)
+print(out.device)  # should be cuda:0 if GPU available, else cpu
+```
+
+Converting to NumPy requires CPU:
+
+```python
+# If x is on GPU, .numpy() will raise an error; bring it back first
+x_cpu = x.detach().cpu()   # detach if it has grad history
+arr = x_cpu.numpy()
+```
+
+In a nutshell: Pick a `device` once, move tensors/models to it, and come back to CPU before calling `.numpy()`.
+
+---
+
+## Practice prompts
+
+- Use indexing to return the value `9` and the vector `[3, 6, 9]` from `x = torch.arange(1, 10).reshape(1, 3, 3)`.
+- Demonstrate memory sharing by creating a NumPy array, converting with `torch.from_numpy`, and then modifying values in‑place on either side.
+- Seed the RNG and generate two identical random tensors; then change the seed and generate a different one.
+- Move a tensor and a simple `nn.Linear` model to the GPU (if available), do a forward pass, then bring the output back to CPU and convert to NumPy.
+
+In a nutshell: Small, hands‑on experiments build intuition faster than reading alone — try the prompts above.
+
+---
+
+## Extra resources
+
+- PyTorch Reproducibility: https://pytorch.org/docs/stable/notes/randomness.html
+- CUDA semantics & best practices: https://pytorch.org/docs/stable/notes/cuda.html
+- NumPy↔PyTorch bridge: https://pytorch.org/docs/stable/notes/interop.html
+
+In a nutshell: The official docs have concise, practical guidance when you want to dive deeper.
+
 
